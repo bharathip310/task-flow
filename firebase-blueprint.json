@@ -1,0 +1,45 @@
+{
+  "entities": {
+    "Task": {
+      "title": "Task",
+      "description": "A user's task or todo item.",
+      "type": "object",
+      "properties": {
+        "title": {
+          "type": "string",
+          "description": "Title of the task",
+          "maxLength": 100
+        },
+        "description": {
+          "type": "string",
+          "description": "Detailed description of the task",
+          "maxLength": 1000
+        },
+        "status": {
+          "type": "string",
+          "enum": ["todo", "in_progress", "done"],
+          "description": "Current status of the task"
+        },
+        "userId": {
+          "type": "string",
+          "description": "ID of the user who owns the task"
+        },
+        "createdAt": {
+          "type": "timestamp"
+        },
+        "updatedAt": {
+          "type": "timestamp"
+        }
+      },
+      "required": ["title", "status", "userId", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}/tasks/{taskId}": {
+      "schema": {
+        "$ref": "#/entities/Task"
+      },
+      "description": "Tasks belonging to a specific user. Using split collections to isolate users data."
+    }
+  }
+}

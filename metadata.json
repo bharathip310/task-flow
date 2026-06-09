@@ -1,0 +1,6 @@
+{
+  "name": "Task Manager",
+  "description": "A web application for creating, updating, and tracking tasks.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
