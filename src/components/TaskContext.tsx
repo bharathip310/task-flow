@@ -46,7 +46,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const res = await axios.get('/api/auth/profile', {
             validateStatus: (status) => status < 400 || status === 401
         });
-        if (res.status === 401) {
+        if (res.status === 401 || typeof res.data !== 'object') {
           setUser(null);
           localStorage.removeItem('token');
           delete axios.defaults.headers.common['Authorization'];
@@ -66,7 +66,13 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     if (user) {
-      axios.get('/api/tasks').then(res => setTasks(res.data)).catch(console.error);
+      axios.get('/api/tasks').then(res => {
+        if (Array.isArray(res.data)) {
+          setTasks(res.data);
+        } else {
+          setTasks([]);
+        }
+      }).catch(console.error);
 
       const socket = io();
       socketRef.current = socket;
@@ -105,19 +111,21 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     try {
       if (isRegister) {
         const res = await axios.post('/api/auth/register', { name, email, password });
+        if (!res.data || !res.data.token || !res.data.user) throw new Error('Invalid response from server. Backend may not be running.');
         localStorage.setItem('token', res.data.token);
         axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
         setUser(res.data.user);
         toast.success('Registration successful');
       } else {
         const res = await axios.post('/api/auth/login', { email, password });
+        if (!res.data || !res.data.token || !res.data.user) throw new Error('Invalid response from server. Backend may not be running.');
         localStorage.setItem('token', res.data.token);
         axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
         setUser(res.data.user);
         toast.success('Login successful');
       }
     } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Authentication failed');
+      toast.error(err.response?.data?.error || err.message || 'Authentication failed');
       throw err;
     }
   }, []);
