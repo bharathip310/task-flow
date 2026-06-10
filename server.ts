@@ -168,11 +168,15 @@ async function startServer() {
   app.delete('/api/tasks/:id', authenticateToken, async (req: any, res) => {
     try {
       const task = await TaskModel.findOneAndDelete({ _id: req.params.id, userId: req.user.id });
-      if (!task) return res.status(404).json({ error: 'Task not found' });
+      if (!task) {
+        console.error('Delete Task Error: Task not found for id', req.params.id, 'and userId', req.user.id);
+        return res.status(404).json({ error: 'Task not found' });
+      }
       io.to(`user_${req.user.id}`).emit('taskDeleted', req.params.id);
       res.json({ message: 'Task deleted' });
-    } catch (error) {
-      res.status(500).json({ error: 'Failed to delete task' });
+    } catch (error: any) {
+      console.error('Failed to delete task:', error);
+      res.status(500).json({ error: error.message || 'Failed to delete task' });
     }
   });
 
@@ -267,13 +271,13 @@ async function startServer() {
   });
 
   // --- Vite Middleware ---
-  if (process.env.NODE_ENV !== 'production') {
+  if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
     const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
-  } else {
+  } else if (!process.env.VERCEL) {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
@@ -281,9 +285,19 @@ async function startServer() {
     });
   }
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-  });
+  if (!process.env.VERCEL) {
+    httpServer.listen(PORT, '0.0.0.0', () => {
+      console.log(`Server running on http://localhost:${PORT}`);
+    });
+  }
+
+  return app;
 }
 
-startServer();
+const appPromise = startServer();
+
+export default async function handler(req: any, res: any) {
+  const app = await appPromise;
+  app(req, res);
+}
+

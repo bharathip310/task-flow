@@ -114,14 +114,15 @@ export const TaskBoard: React.FC<{ onEditTask: (task: Task) => void }> = ({ onEd
                                   {/* Actions Dropdown */}
                                   <div className={`absolute top-0 right-0 flex space-x-1 transition-opacity bg-slate-900/60 p-1 rounded-xl backdrop-blur-md border border-white/10 ${snapshot.isDragging ? 'opacity-0' : 'opacity-0 group-hover:opacity-100'}`}>
                                     <button 
-                                      onClick={() => onEditTask(task)}
+                                      onClick={(e) => { e.stopPropagation(); onEditTask(task); }}
                                       className="p-1.5 text-indigo-300 hover:text-white hover:bg-indigo-500/50 rounded-lg transition-colors cursor-pointer"
                                       title="Edit"
                                     >
                                       <Edit2 className="w-4 h-4" />
                                     </button>
                                     <button 
-                                      onClick={() => {
+                                      onClick={(e) => {
+                                        e.stopPropagation();
                                         if(window.confirm('Eradicate this objective?')) {
                                             deleteTask(task.id);
                                         }

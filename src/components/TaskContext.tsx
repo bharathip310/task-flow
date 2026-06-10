@@ -164,12 +164,13 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteTask = useCallback(async (id: string) => {
     if (!user) return;
-    setTasks(prev => prev.filter(t => t.id !== id));
     try {
       await axios.delete(`/api/tasks/${id}`);
+      setTasks(prev => prev.filter(t => t.id !== id));
       toast.success('Task removed');
-    } catch (e) {
-      toast.error('Failed to delete task');
+    } catch (e: any) {
+      console.error('Delete error', e);
+      toast.error(e.response?.data?.error || e.message || 'Failed to delete task');
     }
   }, [user]);
 
