@@ -3,6 +3,8 @@ import { Task, TaskStatus, TaskPriority, User } from '../types';
 import axios from 'axios';
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
+import { auth, googleAuthProvider } from '../lib/firebase';
+import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 
 interface TaskContextType {
   tasks: Task[];
@@ -13,8 +15,8 @@ interface TaskContextType {
   setSearchQuery: (q: string) => void;
   filterPriority: TaskPriority | 'all';
   setFilterPriority: (p: TaskPriority | 'all') => void;
-  login: (email: string, password: string, name?: string, isRegister?: boolean) => Promise<void>;
-  logout: () => void;
+  login: () => Promise<void>;
+  logout: () => Promise<void>;
   addTask: (title: string, description: string, status?: TaskStatus, priority?: TaskPriority, dueDate?: number) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
   deleteTask: (id: string) => void;
@@ -31,37 +33,27 @@ export const useTasks = () => {
 export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [user, setUser] = useState<User | null>(null);
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all');
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    const fetchProfile = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        if (token) {
-          axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        }
-        const res = await axios.get('/api/auth/profile', {
-            validateStatus: (status) => status < 400 || status === 401
-        });
-        if (res.status === 401 || typeof res.data !== 'object') {
-          setUser(null);
-          localStorage.removeItem('token');
-          delete axios.defaults.headers.common['Authorization'];
-        } else {
-          setUser(res.data);
-        }
-      } catch (error) {
-        setUser(null);
-        localStorage.removeItem('token');
+    const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
+      setFirebaseUser(currUser);
+      if (currUser) {
+        const token = await currUser.getIdToken();
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        setUser({ id: currUser.uid, email: currUser.email || '', name: currUser.displayName || '' });
+      } else {
         delete axios.defaults.headers.common['Authorization'];
-      } finally {
-        setIsLoading(false);
+        setUser(null);
+        setTasks([]);
       }
-    };
-    fetchProfile();
+      setIsLoading(false);
+    });
+    return () => unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -74,7 +66,10 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }).catch(console.error);
 
-      const socket = io();
+      const socket = io({
+        reconnectionDelayMax: 10000,
+        transports: ['websocket', 'polling']
+      });
       socketRef.current = socket;
       
       socket.on('connect', () => {
@@ -107,36 +102,20 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  const login = useCallback(async (email: string, password: string, name?: string, isRegister?: boolean) => {
+  const login = useCallback(async () => {
     try {
-      if (isRegister) {
-        const res = await axios.post('/api/auth/register', { name, email, password });
-        if (!res.data || !res.data.token || !res.data.user) throw new Error('Invalid response from server. Backend may not be running.');
-        localStorage.setItem('token', res.data.token);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
-        setUser(res.data.user);
-        toast.success('Registration successful');
-      } else {
-        const res = await axios.post('/api/auth/login', { email, password });
-        if (!res.data || !res.data.token || !res.data.user) throw new Error('Invalid response from server. Backend may not be running.');
-        localStorage.setItem('token', res.data.token);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.token}`;
-        setUser(res.data.user);
-        toast.success('Login successful');
-      }
+      await signInWithPopup(auth, googleAuthProvider);
+      toast.success('Login successful');
     } catch (err: any) {
-      toast.error(err.response?.data?.error || err.message || 'Authentication failed');
+      toast.error(err.message || 'Authentication failed');
       throw err;
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await axios.post('/api/auth/logout');
-      localStorage.removeItem('token');
-      delete axios.defaults.headers.common['Authorization'];
-      setUser(null);
-      setTasks([]);
+      await signOut(auth);
+      // Wait for onAuthStateChanged to fire to clean up
     } catch (e) {
       console.error(e);
     }
