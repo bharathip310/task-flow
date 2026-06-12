@@ -26,8 +26,8 @@ export const TaskModal: React.FC<TaskModalProps> = ({ task, onClose }) => {
       setStatus(task.status);
       setPriority(task.priority || 'medium');
       if (task.dueDate) {
-        setDueDate(format(task.dueDate, 'yyyy-MM-dd'));
-        setDueTime(format(task.dueDate, 'HH:mm'));
+        setDueDate(format(new Date(task.dueDate), 'yyyy-MM-dd'));
+        setDueTime(format(new Date(task.dueDate), 'HH:mm'));
       } else {
         setDueDate('');
         setDueTime('');

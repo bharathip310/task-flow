@@ -21,7 +21,7 @@ const PriorityColors: Record<TaskPriority, { text: string, bg: string, border: s
 export const TaskBoard: React.FC<{ onEditTask: (task: Task) => void }> = ({ onEditTask }) => {
   const { filteredTasks, updateTask, deleteTask } = useTasks();
 
-  const getTasksByStatus = (status: TaskStatus) => filteredTasks.filter(t => t.status === status).sort((a, b) => b.updatedAt - a.updatedAt);
+  const getTasksByStatus = (status: TaskStatus) => filteredTasks.filter(t => t.status === status).sort((a, b) => new Date(b.updatedAt || 0).getTime() - new Date(a.updatedAt || 0).getTime());
 
   const onDragEnd = (result: DropResult) => {
     const { destination, source, draggableId } = result;
@@ -95,14 +95,14 @@ export const TaskBoard: React.FC<{ onEditTask: (task: Task) => void }> = ({ onEd
                                 <div className="flex justify-between items-start mb-3 relative z-10 gap-2">
                                   <div className="flex flex-col gap-2 w-full pr-8">
                                     <div className="flex flex-wrap items-center gap-2">
-                                      <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${PriorityColors[task.priority || 'medium'].bg} ${PriorityColors[task.priority || 'medium'].text} ${PriorityColors[task.priority || 'medium'].border}`}>
+                                      <span className={`text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${(PriorityColors[task.priority as TaskPriority] || PriorityColors.medium).bg} ${(PriorityColors[task.priority as TaskPriority] || PriorityColors.medium).text} ${(PriorityColors[task.priority as TaskPriority] || PriorityColors.medium).border}`}>
                                         {task.priority || 'medium'}
                                       </span>
                                       {task.dueDate && (
-                                        <span className={`flex items-center text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${isPast(task.dueDate) && task.status !== 'done' ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'}`}>
+                                        <span className={`flex items-center text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full border ${!isNaN(new Date(task.dueDate).getTime()) && isPast(new Date(task.dueDate)) && task.status !== 'done' ? 'bg-red-500/20 text-red-300 border-red-500/30' : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'}`}>
                                           <Calendar className="w-3 h-3 mr-1" />
-                                          {new Date(task.dueDate).toLocaleDateString()}
-                                          {isPast(task.dueDate) && task.status !== 'done' && ' (Overdue)'}
+                                          {!isNaN(new Date(task.dueDate).getTime()) ? new Date(task.dueDate).toLocaleDateString() : 'Invalid Date'}
+                                          {!isNaN(new Date(task.dueDate).getTime()) && isPast(new Date(task.dueDate)) && task.status !== 'done' && ' (Overdue)'}
                                         </span>
                                       )}
                                     </div>
@@ -144,7 +144,7 @@ export const TaskBoard: React.FC<{ onEditTask: (task: Task) => void }> = ({ onEd
                                 <div className="mt-auto flex items-center justify-between pt-4 border-t border-white/5 relative z-10">
                                   <div className="flex items-center text-xs text-slate-400 font-medium bg-black/20 px-2.5 py-1.5 rounded-lg border border-white/5">
                                     <Clock className="w-3.5 h-3.5 mr-1.5 text-indigo-400" />
-                                    {formatDistanceToNow(task.updatedAt, { addSuffix: true })}
+                                    {task.updatedAt && !isNaN(new Date(task.updatedAt).getTime()) ? formatDistanceToNow(new Date(task.updatedAt), { addSuffix: true }) : ''}
                                   </div>
                                 </div>
                               </motion.div>

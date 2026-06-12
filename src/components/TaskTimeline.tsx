@@ -10,10 +10,10 @@ export const TaskTimeline: React.FC<{ onEditTask: (task: Task) => void }> = ({ o
 
   const sortedTasks = [...filteredTasks].sort((a, b) => {
     // Sort by due date first (if missing, put at end), then by creation date
-    if (a.dueDate && b.dueDate) return a.dueDate - b.dueDate;
+    if (a.dueDate && b.dueDate) return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
     if (a.dueDate) return -1;
     if (b.dueDate) return 1;
-    return b.createdAt - a.createdAt;
+    return new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime();
   });
 
   if (sortedTasks.length === 0) {
@@ -34,9 +34,10 @@ export const TaskTimeline: React.FC<{ onEditTask: (task: Task) => void }> = ({ o
     <div className="pb-12 max-w-4xl mx-auto space-y-8">
       <div className="relative border-l-2 border-indigo-500/20 ml-4 md:ml-[120px] space-y-12 py-6">
         {sortedTasks.map((task, index) => {
-          const hasDueDate = !!task.dueDate;
-          const isTaskOverdue = hasDueDate && isPast(task.dueDate) && task.status !== 'done';
-          const isTaskToday = hasDueDate && isToday(task.dueDate);
+          const hasDueDate = !!task.dueDate && !isNaN(new Date(task.dueDate as number).getTime());
+          const parseDate = () => task.dueDate ? new Date(task.dueDate as number) : new Date();
+          const isTaskOverdue = hasDueDate && isPast(parseDate()) && task.status !== 'done';
+          const isTaskToday = hasDueDate && isToday(parseDate());
 
           let markerColor = 'bg-slate-700 border-slate-500';
           let markerIcon = <Clock className="w-4 h-4 text-slate-300" />;
@@ -70,10 +71,10 @@ export const TaskTimeline: React.FC<{ onEditTask: (task: Task) => void }> = ({ o
                 {hasDueDate ? (
                   <div className="flex flex-col">
                     <span className={`text-sm font-bold ${isTaskOverdue ? 'text-rose-400' : 'text-slate-300'}`}>
-                      {format(task.dueDate as number, 'MMM dd')}
+                      {format(parseDate(), 'MMM dd')}
                     </span>
                     <span className="text-xs text-slate-500 font-medium">
-                      {format(task.dueDate as number, 'h:mm a')}
+                      {format(parseDate(), 'h:mm a')}
                     </span>
                   </div>
                 ) : (
@@ -90,7 +91,7 @@ export const TaskTimeline: React.FC<{ onEditTask: (task: Task) => void }> = ({ o
                    <Calendar className={`w-3.5 h-3.5 ${isTaskOverdue ? 'text-rose-400' : 'text-indigo-400'}`} />
                    {hasDueDate ? (
                      <span className={`text-xs font-semibold ${isTaskOverdue ? 'text-rose-400' : 'text-slate-300'}`}>
-                       {format(task.dueDate as number, 'MMM dd, h:mm a')}
+                       {format(parseDate(), 'MMM dd, h:mm a')}
                      </span>
                    ) : (
                      <span className="text-xs font-medium text-slate-500 italic">No Due Date</span>

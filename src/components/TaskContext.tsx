@@ -145,7 +145,11 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const addTask = useCallback(async (title: string, description: string, status: TaskStatus = 'todo', priority: TaskPriority = 'medium', dueDate?: number) => {
     if (!user) return;
     try {
-      await axios.post('/api/tasks', { title, description, status, priority, dueDate });
+      const res = await axios.post('/api/tasks', { title, description, status, priority, dueDate });
+      setTasks(prev => {
+        if (prev.find(t => t.id === res.data.id)) return prev;
+        return [...prev, res.data];
+      });
       toast.success('Task created');
     } catch (e: any) {
       toast.error(e.response?.data?.error || 'Failed to create task');
@@ -176,7 +180,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const filteredTasks = useMemo(() => {
     return tasks.filter(task => {
-      const matchesSearch = task.title.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      const matchesSearch = (task.title || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
         (task.description && task.description.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesPriority = filterPriority === 'all' || task.priority === filterPriority;
       return matchesSearch && matchesPriority;

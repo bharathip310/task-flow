@@ -21,7 +21,11 @@ export const Dashboard: React.FC = () => {
 
   useEffect(() => {
     const checkOverdue = () => {
-      const overdueTasks = tasks.filter(t => t.status !== 'done' && t.dueDate && isPast(t.dueDate));
+      const overdueTasks = tasks.filter(t => {
+        if (t.status === 'done' || !t.dueDate) return false;
+        const d = new Date(t.dueDate);
+        return !isNaN(d.getTime()) && isPast(d);
+      });
       overdueTasks.forEach(task => {
         if (!notifiedTasksRef.current.has(task.id)) {
           toast.error(`Task Overdue: ${task.title}`, {
