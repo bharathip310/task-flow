@@ -1,11 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
-import { adminAuth } from '../lib/firebase-admin.ts';
-import { DecodedIdToken } from 'firebase-admin/auth';
 import { getOrCreateUser } from '../db/users.ts';
+import { createClient } from '@supabase/supabase-js';
+
+const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '';
+const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || '';
+
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export interface AuthRequest extends Request {
-  user?: DecodedIdToken;
-  dbUserId?: number; // Intentionally mapping Firebase UID to Internal DB ID
+  user?: any;
+  dbUserId?: number;
 }
 
 export const requireAuth = async (
@@ -20,21 +24,26 @@ export const requireAuth = async (
 
   const token = authHeader.split('Bearer ')[1];
   try {
-    const decodedToken = await adminAuth.verifyIdToken(token);
-    req.user = decodedToken;
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    
+    if (error || !user) {
+      throw error || new Error('User not found');
+    }
+    
+    req.user = user;
     
     // Sync to DB
     const dbUser = await getOrCreateUser(
-      decodedToken.uid, 
-      decodedToken.email || '', 
-      decodedToken.name || '', 
-      decodedToken.picture || ''
+      user.id, 
+      user.email || '', 
+      user.user_metadata?.full_name || '', 
+      user.user_metadata?.avatar_url || ''
     );
     req.dbUserId = dbUser.id; // numeric pg ID
     
     next();
   } catch (error) {
-    console.error('Error verifying Firebase ID token:', error);
+    console.error('Error verifying Supabase token:', error);
     return res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 };

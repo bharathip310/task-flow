@@ -74,7 +74,7 @@ export const TaskBoard: React.FC<{ onEditTask: (task: Task) => void }> = ({ onEd
                   >
                     <AnimatePresence>
                       {columnTasks.map((task, index) => (
-                        <Draggable key={task.id} draggableId={task.id} index={index}>
+                        <Draggable draggableId={task.id} index={index}>
                           {(provided, snapshot) => (
                             <div
                               ref={provided.innerRef}

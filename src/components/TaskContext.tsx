@@ -3,8 +3,8 @@ import { Task, TaskStatus, TaskPriority, User } from '../types';
 import axios from 'axios';
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
-import { auth, googleAuthProvider } from '../lib/firebase';
-import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { supabase } from '../lib/supabase';
+import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface TaskContextType {
   tasks: Task[];
@@ -33,27 +33,40 @@ export const useTasks = () => {
 export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all');
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (currUser) => {
-      setFirebaseUser(currUser);
-      if (currUser) {
-        const token = await currUser.getIdToken();
-        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-        setUser({ id: currUser.uid, email: currUser.email || '', name: currUser.displayName || '' });
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        setSupabaseUser(session.user);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
+        setUser({ id: session.user.id, email: session.user.email || '', name: session.user.user_metadata?.full_name || '' });
+      } else {
+        setSupabaseUser(null);
+        setUser(null);
+      }
+      setIsLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session?.user) {
+        setSupabaseUser(session.user);
+        axios.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
+        setUser({ id: session.user.id, email: session.user.email || '', name: session.user.user_metadata?.full_name || '' });
       } else {
         delete axios.defaults.headers.common['Authorization'];
+        setSupabaseUser(null);
         setUser(null);
         setTasks([]);
       }
       setIsLoading(false);
     });
-    return () => unsubscribe();
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -104,8 +117,10 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const login = useCallback(async () => {
     try {
-      await signInWithPopup(auth, googleAuthProvider);
-      toast.success('Login successful');
+      await supabase.auth.signInWithOAuth({
+        provider: 'google',
+      });
+      // the page will redirect
     } catch (err: any) {
       toast.error(err.message || 'Authentication failed');
       throw err;
@@ -114,8 +129,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logout = useCallback(async () => {
     try {
-      await signOut(auth);
-      // Wait for onAuthStateChanged to fire to clean up
+      await supabase.auth.signOut();
     } catch (e) {
       console.error(e);
     }

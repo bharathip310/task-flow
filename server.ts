@@ -35,7 +35,7 @@ async function startServer() {
         id: t.id.toString(),
         createdAt: t.createdAt ? t.createdAt.getTime() : Date.now(),
         updatedAt: t.updatedAt ? t.updatedAt.getTime() : Date.now(),
-        userId: req.user!.uid // keep compat with frontend using firebase UID as userId
+        userId: req.user!.id // keep compat with frontend using Supabase ID as userId
       }));
       res.json(formattedTasks);
     } catch (error) {
@@ -63,9 +63,9 @@ async function startServer() {
         id: t.id.toString(),
         createdAt: t.createdAt ? t.createdAt.getTime() : Date.now(),
         updatedAt: t.updatedAt ? t.updatedAt.getTime() : Date.now(),
-        userId: req.user!.uid
+        userId: req.user!.id
       };
-      io.to(`uid_${req.user!.uid}`).emit('taskCreated', taskObj);
+      io.to(`uid_${req.user!.id}`).emit('taskCreated', taskObj);
       res.status(201).json(taskObj);
     } catch (error: any) {
       console.error('Failed to create task:', error);
@@ -89,9 +89,9 @@ async function startServer() {
         id: t.id.toString(),
         createdAt: t.createdAt ? t.createdAt.getTime() : Date.now(),
         updatedAt: t.updatedAt ? t.updatedAt.getTime() : Date.now(),
-        userId: req.user!.uid
+        userId: req.user!.id
       };
-      io.to(`uid_${req.user!.uid}`).emit('taskUpdated', taskObj);
+      io.to(`uid_${req.user!.id}`).emit('taskUpdated', taskObj);
       res.json(taskObj);
     } catch (error) {
       console.error('Failed to update task:', error);
@@ -106,7 +106,7 @@ async function startServer() {
       if (result.length === 0) {
         return res.status(404).json({ error: 'Task not found' });
       }
-      io.to(`uid_${req.user!.uid}`).emit('taskDeleted', req.params.id);
+      io.to(`uid_${req.user!.id}`).emit('taskDeleted', req.params.id);
       res.json({ message: 'Task deleted' });
     } catch (error: any) {
       console.error('Failed to delete task:', error);
