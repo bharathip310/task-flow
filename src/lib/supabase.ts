@@ -7,4 +7,4 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.warn("Supabase credentials missing. App may not work correctly.");
 }
 
-export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+export const supabase = createClient(supabaseUrl || 'https://dummy.supabase.co', supabaseAnonKey || 'dummy');
