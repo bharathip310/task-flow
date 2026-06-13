@@ -1,10 +1,26 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useTasks } from './TaskContext';
 import { Layers } from 'lucide-react';
 import { motion } from 'motion/react';
 
 export const Login: React.FC = () => {
   const { login } = useTasks();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    try {
+      await login(email, password, isSignUp);
+    } catch (e) {
+      // Error is handled by tost in context
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-8 relative overflow-hidden">
@@ -45,20 +61,60 @@ export const Login: React.FC = () => {
             TaskFlow
           </h2>
           <p className="mt-3 text-sm text-indigo-200/80">
-            Access your secure workspace.
+            {isSignUp ? 'Create a secure workspace.' : 'Access your secure workspace.'}
           </p>
         </div>
 
-        <div className="mt-8">
+        <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
+          <div className="space-y-4">
+            <div>
+              <label className="block tracking-wide text-indigo-200 text-xs font-medium uppercase mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                placeholder="you@example.com"
+              />
+            </div>
+            <div>
+              <label className="block tracking-wide text-indigo-200 text-xs font-medium uppercase mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all"
+                placeholder="••••••••"
+              />
+            </div>
+          </div>
+
           <motion.button
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
-            onClick={login}
-            className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.4)] focus:outline-none transition-all cursor-pointer"
+            type="submit"
+            disabled={loading}
+            className="group relative w-full flex justify-center py-3.5 px-4 border border-transparent text-sm font-medium rounded-xl text-white bg-indigo-600 hover:bg-indigo-500 shadow-[0_0_20px_rgba(79,70,229,0.4)] focus:outline-none transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Sign in with Google
+            {loading ? 'Processing...' : (isSignUp ? 'Sign Up' : 'Sign In')}
           </motion.button>
-        </div>
+          
+          <div className="text-center mt-4">
+            <button 
+              type="button" 
+              onClick={() => setIsSignUp(!isSignUp)}
+              className="text-sm text-indigo-300 hover:text-white transition-colors"
+            >
+              {isSignUp ? "Already have an account? Sign In" : "Don't have an account? Sign Up"}
+            </button>
+          </div>
+        </form>
       </motion.div>
     </div>
   );

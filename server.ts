@@ -6,6 +6,8 @@ import { Server } from 'socket.io';
 import cookieParser from 'cookie-parser';
 import cron from 'node-cron';
 import nodemailer from 'nodemailer';
+import jwt from 'jsonwebtoken';
+import bcrypt from 'bcryptjs';
 
 import { requireAuth, AuthRequest } from './src/middleware/auth.ts';
 import { db } from './src/db/index.ts';
@@ -13,6 +15,7 @@ import { tasks, users } from './src/db/schema.ts';
 import { eq, and, gt, lt, lte, ne, or } from 'drizzle-orm';
 
 const PORT = 3000;
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_development_only';
 
 async function startServer() {
   const app = express();
@@ -23,6 +26,60 @@ async function startServer() {
 
   app.use(express.json());
   app.use(cookieParser());
+
+  // --- Auth API Routes ---
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      if (!email || !password) return res.status(400).json({ error: 'Email and password required' });
+      
+      const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (existing.length > 0) return res.status(400).json({ error: 'Email already exists' });
+
+      const hashedPassword = await bcrypt.hash(password, 10);
+      const result = await db.insert(users).values({
+        email,
+        name: email.split('@')[0],
+        password: hashedPassword,
+      }).returning();
+      
+      const user = result[0];
+      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+      res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+    } catch(err) {
+      console.error(err);
+      res.status(500).json({ error: 'Registration failed' });
+    }
+  });
+
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { email, password } = req.body;
+      const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      if (result.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
+      
+      const user = result[0];
+      const isValid = await bcrypt.compare(password, user.password);
+      if (!isValid) return res.status(401).json({ error: 'Invalid credentials' });
+
+      const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '7d' });
+      res.json({ token, user: { id: user.id, email: user.email, name: user.name } });
+    } catch(err) {
+      console.error(err);
+      res.status(500).json({ error: 'Login failed' });
+    }
+  });
+
+  app.get('/api/auth/me', requireAuth, async (req: AuthRequest, res) => {
+    try {
+      const result = await db.select().from(users).where(eq(users.id, req.dbUserId!)).limit(1);
+      if (result.length === 0) return res.status(404).json({ error: 'User not found' });
+      const user = result[0];
+      res.json({ user: { id: user.id, email: user.email, name: user.name } });
+    } catch(err) {
+      res.status(500).json({ error: 'Failed' });
+    }
+  });
 
   // --- Task API Routes ---
 

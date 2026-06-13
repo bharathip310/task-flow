@@ -3,8 +3,8 @@ import { integer, pgTable, serial, text, timestamp, boolean, bigint } from 'driz
 
 export const users = pgTable('users', {
   id: serial('id').primaryKey(),
-  uid: text('uid').notNull().unique(), // Firebase UID
-  email: text('email').notNull(),
+  email: text('email').notNull().unique(),
+  password: text('password').notNull(),
   name: text('name').notNull(),
   avatar: text('avatar'),
   createdAt: timestamp('created_at').defaultNow(),

@@ -1,11 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
-import { getOrCreateUser } from '../db/users.ts';
-import { createClient } from '@supabase/supabase-js';
+import jwt from 'jsonwebtoken';
 
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://dummy.supabase.co';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'dummy';
-
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret_for_development_only';
 
 export interface AuthRequest extends Request {
   user?: any;
@@ -24,26 +20,12 @@ export const requireAuth = async (
 
   const token = authHeader.split('Bearer ')[1];
   try {
-    const { data: { user }, error } = await supabase.auth.getUser(token);
-    
-    if (error || !user) {
-      throw error || new Error('User not found');
-    }
-    
-    req.user = user;
-    
-    // Sync to DB
-    const dbUser = await getOrCreateUser(
-      user.id, 
-      user.email || '', 
-      user.user_metadata?.full_name || '', 
-      user.user_metadata?.avatar_url || ''
-    );
-    req.dbUserId = dbUser.id; // numeric pg ID
-    
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    req.user = { id: decoded.userId };
+    req.dbUserId = decoded.userId;
     next();
   } catch (error) {
-    console.error('Error verifying Supabase token:', error);
+    console.error('Error verifying JWT:', error);
     return res.status(401).json({ error: 'Unauthorized: Invalid token' });
   }
 };

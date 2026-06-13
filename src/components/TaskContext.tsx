@@ -3,8 +3,6 @@ import { Task, TaskStatus, TaskPriority, User } from '../types';
 import axios from 'axios';
 import { io, Socket } from 'socket.io-client';
 import { toast } from 'sonner';
-import { supabase } from '../lib/supabase';
-import { User as SupabaseUser } from '@supabase/supabase-js';
 
 interface TaskContextType {
   tasks: Task[];
@@ -15,7 +13,7 @@ interface TaskContextType {
   setSearchQuery: (q: string) => void;
   filterPriority: TaskPriority | 'all';
   setFilterPriority: (p: TaskPriority | 'all') => void;
-  login: () => Promise<void>;
+  login: (email: string, password: string, isSignUp?: boolean) => Promise<void>;
   logout: () => Promise<void>;
   addTask: (title: string, description: string, status?: TaskStatus, priority?: TaskPriority, dueDate?: number) => void;
   updateTask: (id: string, updates: Partial<Task>) => void;
@@ -33,40 +31,30 @@ export const useTasks = () => {
 export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [user, setUser] = useState<User | null>(null);
-  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterPriority, setFilterPriority] = useState<TaskPriority | 'all'>('all');
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setSupabaseUser(session.user);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
-        setUser({ id: session.user.id, email: session.user.email || '', name: session.user.user_metadata?.full_name || '' });
+    const checkAuth = async () => {
+      const token = localStorage.getItem('token');
+      if (token) {
+        axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        try {
+          const res = await axios.get('/api/auth/me');
+          setUser(res.data.user);
+        } catch (error) {
+          localStorage.removeItem('token');
+          delete axios.defaults.headers.common['Authorization'];
+          setUser(null);
+        }
       } else {
-        setSupabaseUser(null);
         setUser(null);
       }
       setIsLoading(false);
-    });
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setSupabaseUser(session.user);
-        axios.defaults.headers.common['Authorization'] = `Bearer ${session.access_token}`;
-        setUser({ id: session.user.id, email: session.user.email || '', name: session.user.user_metadata?.full_name || '' });
-      } else {
-        delete axios.defaults.headers.common['Authorization'];
-        setSupabaseUser(null);
-        setUser(null);
-        setTasks([]);
-      }
-      setIsLoading(false);
-    });
-
-    return () => subscription.unsubscribe();
+    };
+    checkAuth();
   }, []);
 
   useEffect(() => {
@@ -115,21 +103,35 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  const login = useCallback(async () => {
+  const login = useCallback(async (email: string, password: string, isSignUp: boolean = false) => {
     try {
-      await supabase.auth.signInWithOAuth({
-        provider: 'google',
-      });
-      // the page will redirect
+      const endpoint = isSignUp ? '/api/auth/register' : '/api/auth/login';
+      const res = await axios.post(endpoint, { email, password });
+      
+      const { token, user: loggedInUser } = res.data;
+      localStorage.setItem('token', token);
+      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      setUser(loggedInUser);
+      
+      if (isSignUp) {
+        toast.success('Sign up successful! You are now logged in.');
+      }
     } catch (err: any) {
-      toast.error(err.message || 'Authentication failed');
+      const msg = err.response?.data?.error || err.message || 'Authentication failed';
+      toast.error(msg);
       throw err;
     }
   }, []);
 
   const logout = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
+      localStorage.removeItem('token');
+      delete axios.defaults.headers.common['Authorization'];
+      setUser(null);
+      setTasks([]);
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+      }
     } catch (e) {
       console.error(e);
     }
