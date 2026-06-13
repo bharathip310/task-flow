@@ -207,6 +207,7 @@ export const Dashboard: React.FC = () => {
       <AnimatePresence>
         {isModalOpen && (
           <TaskModal
+            key="task-modal"
             task={editingTask}
             onClose={() => setIsModalOpen(false)}
           />
